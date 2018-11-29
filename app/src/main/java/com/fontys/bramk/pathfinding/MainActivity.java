@@ -8,16 +8,20 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
+import android.view.View;
+import android.widget.Button;
 import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class MainActivity extends AppCompatActivity{
+public class MainActivity extends AppCompatActivity {
 
 
     BluetoothAdapter mBluetoothAdapter = null;
     List<String> strings = new ArrayList<>();
+    Button buttonScan = null;
+    boolean running = false;
 
     private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
         public void onReceive(Context context, Intent intent) {
@@ -38,8 +42,10 @@ public class MainActivity extends AppCompatActivity{
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        setContentView(R.layout.activity_main);
+
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-        if(mBluetoothAdapter == null){
+        if (mBluetoothAdapter == null) {
             Toast.makeText(this, "No bluetoothadapter found", Toast.LENGTH_SHORT).show();
         }
 
@@ -51,9 +57,27 @@ public class MainActivity extends AppCompatActivity{
         IntentFilter filter = new IntentFilter(BluetoothDevice.ACTION_FOUND);
         registerReceiver(mReceiver, filter);
 
-        mBluetoothAdapter.startDiscovery();
-        Toast.makeText(this, "Start discovery", Toast.LENGTH_SHORT).show();
+        buttonScan = (Button) findViewById(R.id.buttonScan);
+        if(buttonScan != null) {
+            buttonScan.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    if (!running) {
+                        mBluetoothAdapter.startDiscovery();
+                        Toast.makeText(MainActivity.this, "Start discovery", Toast.LENGTH_SHORT).show();
+                        running = true;
+                    } else {
+                        mBluetoothAdapter.cancelDiscovery();
+
+                        Toast.makeText(MainActivity.this, "Found " + strings.size() + " results", Toast.LENGTH_LONG).show();
+                        //Toast.makeText(MainActivity.this, "Stop discovery", Toast.LENGTH_SHORT).show();
+                        running = false;
+                    }
+                }
+            });
+        }
     }
+
 
     @Override
     protected void onDestroy() {
@@ -61,10 +85,5 @@ public class MainActivity extends AppCompatActivity{
         // Don't forget to unregister the ACTION_FOUND receiver.
         unregisterReceiver(mReceiver);
     }
-
-
-
-
-
 
 }
