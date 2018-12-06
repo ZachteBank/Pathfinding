@@ -83,6 +83,8 @@ public class MainActivity extends AppCompatActivity {
 
     public void checkBTPermissions(){
         if(Build.VERSION.SDK_INT > Build.VERSION_CODES.LOLLIPOP){
+            Toast.makeText(this, "checkBTPermissions: No need to check permissions. SDK version < LOLLIPOP.", Toast.LENGTH_LONG).show();
+
             int permissionCheck = this.checkSelfPermission("Manifest.permission.ACCESS_FINE_LOCATION");
             permissionCheck += this.checkSelfPermission("Manifest.permission.ACCESS_COARSE_LOCATION");
             if (permissionCheck != 0) {
