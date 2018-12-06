@@ -11,7 +11,9 @@ import android.os.Build;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.view.View;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.ListView;
 import android.widget.Toast;
 
 import java.util.ArrayList;
@@ -21,7 +23,11 @@ public class MainActivity extends AppCompatActivity {
 
 
     BluetoothAdapter mBluetoothAdapter = null;
-    List<String> strings = new ArrayList<>();
+    List<BluetoothDevice> devices = new ArrayList<>();
+    ListView list = null;
+    List<String> listItems;
+    ArrayAdapter<String> listViewAdapter;
+
     Button buttonScan = null;
     boolean running = false;
 
@@ -29,13 +35,9 @@ public class MainActivity extends AppCompatActivity {
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
             if (BluetoothDevice.ACTION_FOUND.equals(action)) {
-                // Discovery has found a device. Get the BluetoothDevice
-                // object and its info from the Intent.
                 BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-                String deviceName = device.getName();
-                String deviceHardwareAddress = device.getAddress(); // MAC address
-                strings.add(deviceHardwareAddress);
-                Toast.makeText(MainActivity.this, deviceHardwareAddress, Toast.LENGTH_SHORT).show();
+                devices.add(device);
+                addItemsToList();
             }
         }
     };
@@ -59,26 +61,43 @@ public class MainActivity extends AppCompatActivity {
         IntentFilter filter = new IntentFilter(BluetoothDevice.ACTION_FOUND);
         registerReceiver(mReceiver, filter);
 
+        list = (ListView) findViewById(R.id.list);
         buttonScan = (Button) findViewById(R.id.buttonScan);
+        listItems = new ArrayList<>();
+
+        listViewAdapter = new ArrayAdapter<String>(this,
+                android.R.layout.simple_list_item_1,
+                listItems);
+
+        list.setAdapter(listViewAdapter);
+
         if(buttonScan != null) {
             buttonScan.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
                     if (!running) {
+                        devices.clear();
                         checkBTPermissions();
                         mBluetoothAdapter.startDiscovery();
                         Toast.makeText(MainActivity.this, "Start discovery", Toast.LENGTH_SHORT).show();
                         running = true;
                     } else {
                         mBluetoothAdapter.cancelDiscovery();
-
-                        Toast.makeText(MainActivity.this, "Found " + strings.size() + " results", Toast.LENGTH_LONG).show();
+                        Toast.makeText(MainActivity.this, "Found " + devices.size() + " results", Toast.LENGTH_LONG).show();
                         //Toast.makeText(MainActivity.this, "Stop discovery", Toast.LENGTH_SHORT).show();
                         running = false;
                     }
                 }
             });
         }
+    }
+
+    private void addItemsToList(){
+        listItems.clear();
+        for (BluetoothDevice device : devices) {
+            listItems.add(device.getAddress());
+        }
+        listViewAdapter.notifyDataSetChanged();
     }
 
     public void checkBTPermissions(){
