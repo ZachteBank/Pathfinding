@@ -10,20 +10,29 @@ import android.content.IntentFilter;
 import android.os.Build;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
 import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ListView;
 import android.widget.Toast;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
+import java.io.DataOutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
+
+import static android.provider.ContactsContract.CommonDataKinds.Website.URL;
 
 public class MainActivity extends AppCompatActivity {
 
 
     BluetoothAdapter mBluetoothAdapter = null;
-    List<BluetoothDevice> devices = new ArrayList<>();
+    List<MyBluetoothDevice> devices = new ArrayList<>();
     ListView list = null;
     List<String> listItems;
     ArrayAdapter<String> listViewAdapter;
@@ -36,7 +45,12 @@ public class MainActivity extends AppCompatActivity {
             String action = intent.getAction();
             if (BluetoothDevice.ACTION_FOUND.equals(action)) {
                 BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-                devices.add(device);
+
+                MyBluetoothDevice myDevice = new MyBluetoothDevice();
+                myDevice.setDevice(device);
+                myDevice.setStrength(intent.getShortExtra(BluetoothDevice.EXTRA_RSSI, Short.MIN_VALUE));
+
+                devices.add(myDevice);
                 addItemsToList();
             }
         }
@@ -83,6 +97,11 @@ public class MainActivity extends AppCompatActivity {
                         running = true;
                     } else {
                         mBluetoothAdapter.cancelDiscovery();
+                        try {
+                            postResults();
+                        } catch (JSONException e) {
+                            e.printStackTrace();
+                        }
                         Toast.makeText(MainActivity.this, "Found " + devices.size() + " results", Toast.LENGTH_LONG).show();
                         //Toast.makeText(MainActivity.this, "Stop discovery", Toast.LENGTH_SHORT).show();
                         running = false;
@@ -92,10 +111,57 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private void postResults() throws JSONException {
+        final String urlAdress = "http://145.93.173.149:8071/pathfinding/add";
+        final JSONObject jsonAllDevices = new JSONObject();
+        Toast.makeText(this, "Start to push data", Toast.LENGTH_SHORT).show();
+        JSONArray jsonArray = new JSONArray();
+        for (MyBluetoothDevice device : devices) {
+            JSONObject jsonDevice = new JSONObject();
+            jsonDevice.put("mac", device.getDevice().getAddress());
+            jsonDevice.put("strength", device.getStrength());
+            jsonArray.put(jsonDevice);
+        }
+        jsonAllDevices.put("devices", jsonArray);
+
+        Thread thread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    java.net.URL url = new URL(urlAdress);
+                    HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                    conn.setRequestMethod("POST");
+                    conn.setRequestProperty("Content-Type", "application/json;charset=UTF-8");
+                    conn.setRequestProperty("Accept","application/json");
+                    conn.setDoOutput(true);
+                    conn.setDoInput(true);
+
+                    Log.i("JSON", jsonAllDevices.toString());
+                    DataOutputStream os = new DataOutputStream(conn.getOutputStream());
+                    //os.writeBytes(URLEncoder.encode(jsonParam.toString(), "UTF-8"));
+                    os.writeBytes(jsonAllDevices.toString());
+
+                    os.flush();
+                    os.close();
+
+                    Log.i("STATUS", String.valueOf(conn.getResponseCode()));
+                    Log.i("MSG" , conn.getResponseMessage());
+
+                    conn.disconnect();
+
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        });
+
+        thread.start();
+    }
+
     private void addItemsToList(){
         listItems.clear();
-        for (BluetoothDevice device : devices) {
-            listItems.add(device.getAddress());
+        for (MyBluetoothDevice device : devices) {
+            listItems.add(device.getDevice().getAddress() + device.getStrength() + "dBm");
         }
         listViewAdapter.notifyDataSetChanged();
     }
@@ -116,7 +182,6 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        // Don't forget to unregister the ACTION_FOUND receiver.
         unregisterReceiver(mReceiver);
     }
 
