@@ -12,10 +12,7 @@ import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
-import android.widget.ArrayAdapter;
-import android.widget.Button;
-import android.widget.ListView;
-import android.widget.Toast;
+import android.widget.*;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -38,6 +35,7 @@ public class MainActivity extends AppCompatActivity {
     ArrayAdapter<String> listViewAdapter;
 
     Button buttonScan = null;
+    EditText beaconId = null;
     boolean running = false;
 
     private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
@@ -72,11 +70,10 @@ public class MainActivity extends AppCompatActivity {
             startActivityForResult(enableBtIntent, 1);
         }
 
-        IntentFilter filter = new IntentFilter(BluetoothDevice.ACTION_FOUND);
-        registerReceiver(mReceiver, filter);
 
         list = (ListView) findViewById(R.id.list);
         buttonScan = (Button) findViewById(R.id.buttonScan);
+        beaconId = (EditText) findViewById(R.id.beaconId);
         listItems = new ArrayList<>();
 
         listViewAdapter = new ArrayAdapter<String>(this,
@@ -92,11 +89,14 @@ public class MainActivity extends AppCompatActivity {
                     if (!running) {
                         devices.clear();
                         checkBTPermissions();
+                        IntentFilter filter = new IntentFilter(BluetoothDevice.ACTION_FOUND);
+                        registerReceiver(mReceiver, filter);
                         mBluetoothAdapter.startDiscovery();
                         Toast.makeText(MainActivity.this, "Start discovery", Toast.LENGTH_SHORT).show();
                         running = true;
                     } else {
                         mBluetoothAdapter.cancelDiscovery();
+                        unregisterReceiver(mReceiver);
                         try {
                             postResults();
                         } catch (JSONException e) {
@@ -112,10 +112,12 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void postResults() throws JSONException {
-        final String urlAdress = "http://145.93.173.149:8071/pathfinding/add";
-        final JSONObject jsonAllDevices = new JSONObject();
+        final String urlAdress = "http://145.93.37.51:8070/pathfinding/add";
         Toast.makeText(this, "Start to push data", Toast.LENGTH_SHORT).show();
+
+        final JSONObject jsonAllDevices = new JSONObject();
         JSONArray jsonArray = new JSONArray();
+
         for (MyBluetoothDevice device : devices) {
             JSONObject jsonDevice = new JSONObject();
             jsonDevice.put("mac", device.getDevice().getAddress());
@@ -123,6 +125,8 @@ public class MainActivity extends AppCompatActivity {
             jsonArray.put(jsonDevice);
         }
         jsonAllDevices.put("devices", jsonArray);
+
+        jsonAllDevices.put("beacon", beaconId.getText());
 
         Thread thread = new Thread(new Runnable() {
             @Override
